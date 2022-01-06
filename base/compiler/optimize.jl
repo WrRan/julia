@@ -223,7 +223,7 @@ function stmt_effect_free(@nospecialize(stmt), @nospecialize(rt), src::Union{IRC
             rt === ⊥ && return false
             return _builtin_nothrow(f, LatticeElement[argextype(args[i], src) for i = 2:length(args)], rt)
         elseif head === :new
-            typ = unwraptype(argextype(args[1], src))
+            typ = argextype(args[1], src)
             # `Expr(:new)` of unknown type could raise arbitrary TypeError.
             typ, isexact = instanceof_tfunc(typ)
             isexact || return false
@@ -240,7 +240,7 @@ function stmt_effect_free(@nospecialize(stmt), @nospecialize(rt), src::Union{IRC
             return foreigncall_effect_free(stmt, rt, src)
         elseif head === :new_opaque_closure
             length(args) < 5 && return false
-            typ = unwraptype(argextype(args[1], src))
+            typ = argextype(args[1], src)
             typ, isexact = instanceof_tfunc(typ)
             isexact || return false
             typ ⊑ Tuple || return false
@@ -354,7 +354,7 @@ function argextype(
         if x.head === :static_parameter
             return sptypes[x.args[1]::Int]
         elseif x.head === :boundscheck
-            return NativeType(Bool)
+            return LBool
         elseif x.head === :copyast
             return argextype(x.args[1], src, sptypes, slottypes)
         end
@@ -547,7 +547,7 @@ function convert_to_ircode(ci::CodeInfo, sv::OptimizationState)
             # insert a side-effect instruction before the current instruction in the same basic block
             insert!(code, idx, Expr(:code_coverage_effect))
             insert!(codelocs, idx, codeloc)
-            insert!(ssavaluetypes, idx, NativeType(Nothing))
+            insert!(ssavaluetypes, idx, LNothing)
             insert!(stmtinfo, idx, nothing)
             insert!(ssaflags, idx, IR_FLAG_NULL)
             changemap[oldidx] += 1

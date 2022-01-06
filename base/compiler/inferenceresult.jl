@@ -37,8 +37,8 @@ function matching_cache_argtypes(
             if slotid !== nothing
                 # using union-split signature, we may be able to narrow down `Conditional`
                 sigt = widenconst(slotid > nargs ? argtypes[slotid] : cache_argtypes[slotid])
-                vtype = tmeet(cnd.vtype, sigt)
-                elsetype = tmeet(cnd.elsetype, sigt)
+                vtype = cnd.vtype ⊓ sigt
+                elsetype = cnd.elsetype ⊓ sigt
                 if vtype === Bottom && elsetype === Bottom
                     # we accidentally proved this method match is impossible
                     # TODO bail out here immediately rather than just propagating Bottom ?
@@ -67,7 +67,7 @@ function matching_cache_argtypes(
             else
                 last = nargs
             end
-            isva_given_argtypes[nargs] = LatticeElement(tuple_tfunc(given_argtypes[last:end]))
+            isva_given_argtypes[nargs] = tuple_tfunc(given_argtypes[last:end])
             # invalidate `Conditional` imposed on varargs
             if condargs !== nothing
                 for (slotid, i) in condargs
@@ -219,7 +219,7 @@ function cache_lookup(linfo::MethodInstance, given_argtypes::Argtypes, cache::Ve
             end
         end
         if method.isva && cache_match
-            cache_match = is_argtype_match(LatticeElement(tuple_tfunc(anymap(unwraptype, given_argtypes[(nargs + 1):end]))),
+            cache_match = is_argtype_match(tuple_tfunc(given_argtypes[(nargs + 1):end]),
                                            cache_argtypes[end],
                                            cache_overridden_by_const[end])
         end
