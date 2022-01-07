@@ -31,6 +31,11 @@ extern void *_keymgr_get_and_lock_processwide_ptr(unsigned int key);
 extern int _keymgr_get_and_lock_processwide_ptr_2(unsigned int key, void **result);
 extern int _keymgr_set_lockmode_processwide_ptr(unsigned int key, unsigned int mode);
 
+// private dyld3/dyld4 stuff
+extern void _dyld_atfork_prepare(void) __attribute__((weak_import));
+extern void _dyld_atfork_parent(void) __attribute__((weak_import));
+//extern void _dyld_fork_child(void) __attribute__((weak_import));
+
 static void attach_exception_port(thread_port_t thread, int segv_only);
 
 // low 16 bits are the thread id, the next 8 bits are the original gc_state
@@ -540,6 +545,8 @@ void *mach_profile_listener(void *arg)
         jl_lock_profile();
         void *unused = NULL;
         int keymgr_locked = _keymgr_get_and_lock_processwide_ptr_2(KEYMGR_GCC3_DW2_OBJ_LIST, &unused) == 0;
+        if (_dyld_atfork_prepare != NULL && _dyld_atfork_parent != NULL)
+            _dyld_atfork_prepare();
         jl_shuffle_int_array_inplace(profile_round_robin_thread_order, jl_n_threads, &profile_cong_rng_seed);
         for (int idx = jl_n_threads; idx-- > 0; ) {
             // Stop the threads in the random round-robin order.
@@ -609,6 +616,8 @@ void *mach_profile_listener(void *arg)
             // We're done! Resume the thread.
             jl_thread_resume(i, 0);
         }
+        if (_dyld_atfork_prepare != NULL && _dyld_atfork_parent != NULL)
+            _dyld_atfork_parent();
         if (keymgr_locked)
             _keymgr_unlock_processwide_ptr(KEYMGR_GCC3_DW2_OBJ_LIST);
         jl_unlock_profile();
